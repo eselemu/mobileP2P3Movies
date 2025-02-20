@@ -1,8 +1,10 @@
 package com.example.movies
 
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Button
+import android.widget.EditText
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
@@ -13,6 +15,7 @@ import com.google.firebase.auth.FirebaseAuth
 class LoginActivity : AppCompatActivity() {
 
     private lateinit var auth: FirebaseAuth;
+    @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -25,20 +28,36 @@ class LoginActivity : AppCompatActivity() {
 
         auth = FirebaseAuth.getInstance()
 
+        var email : String = ""
+        var pass : String = ""
+
+        val editTxtUsername = findViewById<EditText>(R.id.editTxt_Email)
+        val editTxtPass = findViewById<EditText>(R.id.editTxt_Pass)
+
         val btnLogin = findViewById<Button>(R.id.butGoMain_Login)
         btnLogin.setOnClickListener {
-            auth.signInWithEmailAndPassword("0254398@up.edu.mx", "nomas1234").addOnCompleteListener(){
-                result ->
-                if(result.isSuccessful){
+            val email = editTxtUsername.text.toString().trim()
+            val pass = editTxtPass.text.toString().trim()
+
+            if(email.isEmpty() || pass.isEmpty()) {
+                Toast.makeText(this, "Empty Fields", Toast.LENGTH_LONG).show() // ✅ Show error and stop execution
+                return@setOnClickListener
+            }
+
+            auth.signInWithEmailAndPassword(email, pass).addOnCompleteListener { result ->
+                if (result.isSuccessful) {
                     Toast.makeText(this, "User Authenticated", Toast.LENGTH_LONG).show()
                     goMain()
-                }else{
-                    Toast.makeText(this, "Error " + result.exception?.message ?: "Unkown", Toast.LENGTH_LONG).show()
+                } else {
+                    Toast.makeText(
+                        this,
+                        "Error: ${result.exception?.message ?: "Unknown"}",
+                        Toast.LENGTH_LONG
+                    ).show()
                 }
             }
         }
     }
-
     public override fun onStart() {
         super.onStart()
         // Check if user is signed in (non-null) and update UI accordingly.

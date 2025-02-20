@@ -30,13 +30,15 @@
         app:layout_constraintTop_toTopOf="parent">
 
         <androidx.appcompat.widget.Toolbar
-            android:id="@+id/toolbar"
+            android:id="@+id/toolbar_Main"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="?attr/colorPrimary"
+            android:background="@color/graphicDesign1"
             android:minHeight="?attr/actionBarSize"
             android:theme="?attr/actionBarTheme"
-            app:title="Movie Catalog" />
+            app:collapseIcon="@drawable/ic_nav"
+            app:title="Movie Catalog"
+            app:titleTextColor="@color/white" />
 
         <ListView
             android:id="@+id/listView_MovieCatalog_Main"
