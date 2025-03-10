@@ -1,18 +1,29 @@
 package com.example.movies
 
+import android.Manifest
 import android.content.ContentValues.TAG
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.location.Location
 import android.os.Bundle
 import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
+import android.view.View
 import android.widget.ListView
+import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.fragment.app.Fragment
+import androidx.lifecycle.ViewModelProvider
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationServices
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
@@ -23,12 +34,23 @@ import com.google.firebase.ktx.Firebase
 class MainActivity : AppCompatActivity() {
 
     private lateinit var auth: FirebaseAuth;
-    lateinit var moviesList : ArrayList<Movie>
+    private lateinit var moviesViewModel: MoviesViewModel
 
     val database = Firebase.database
     val myRef = database.getReference("movies")
 
     lateinit var toolbar : Toolbar
+
+    private val requestPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()){
+            awarded ->
+        if (awarded){
+            Toast.makeText(this,"Permissions Awarded", Toast.LENGTH_LONG).show()
+        }else{
+            Toast.makeText(this, "Permissions Denied", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -39,43 +61,39 @@ class MainActivity : AppCompatActivity() {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
-        toolbar = findViewById<Toolbar>(R.id.toolbar_Main)
+        toolbar = findViewById(R.id.toolbar_Main)
         setSupportActionBar(toolbar)
 
 
         auth = FirebaseAuth.getInstance()
+        moviesViewModel = ViewModelProvider(this).get(MoviesViewModel::class.java)
+
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
 
         readDB()
     }
 
-    private fun fillMoviesList(){
-        val list = findViewById<ListView>(R.id.listView_MovieCatalog_Main)
-        list.adapter = MovieAdapter(this, moviesList)
-    }
-
-    private fun readDB(){
-        myRef.addValueEventListener(object: ValueEventListener {
-
+    private fun readDB() {
+        myRef.addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-
-                moviesList = ArrayList<Movie>()
-                snapshot.children.forEach{
-                    child ->
-                    var movie = Movie(child.child("name").value.toString() ?: "",
-                        child.child("year").value.toString() ?: "",
-                        child.child("genre").value.toString() ?: "",
-                        child.child("img").value.toString() ?: "",
-                        child.key.toString() ?: "")
-                    moviesList.add(movie)
+                val movies = ArrayList<Movie>()
+                snapshot.children.forEach { child ->
+                    val movie = Movie(
+                        child.child("name").value.toString(),
+                        child.child("year").value.toString(),
+                        child.child("genre").value.toString(),
+                        child.child("img").value.toString(),
+                        child.child("location").value.toString(),
+                        child.key.toString()
+                    )
+                    movies.add(movie)
                 }
-                fillMoviesList()
-
+                moviesViewModel.updateMoviesList(movies) // Updating ViewModel
             }
 
             override fun onCancelled(error: DatabaseError) {
                 Log.w(TAG, "Failed to read value.", error.toException())
             }
-
         })
     }
 
@@ -93,5 +111,52 @@ class MainActivity : AppCompatActivity() {
         }
         else if (item.itemId == R.id.menuItem_Profile){}
         return super.onOptionsItemSelected(item)
+    }
+
+    private fun changeFragment(fragment: Fragment){
+        val manager = supportFragmentManager
+        val transaction = manager.beginTransaction()
+        transaction.replace(R.id.fragmentContainerView_Main, fragment)
+        transaction.commit()
+    }
+
+    fun getLocation(callback: (String) -> Unit) {
+        if (ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED ||
+            ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            val permissions = arrayOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            )
+            requestPermissionLauncher.launch(permissions[0])
+            requestPermissionLauncher.launch(permissions[1])
+            return
+        }
+
+        fusedLocationClient.lastLocation
+            .addOnSuccessListener { location: Location? ->
+                if (location != null) {
+                    val currentLocation = "${location.latitude} ${location.longitude}"
+                    callback(currentLocation)
+                } else {
+                    callback("Location not found")
+                }
+            }
+    }
+
+
+
+    fun changeToViewMovies(){
+        changeFragment(ViewMoviesFragment())
+    }
+
+    fun changeToAddMovies(){
+        changeFragment(AddMoviesFragment())
     }
 }
